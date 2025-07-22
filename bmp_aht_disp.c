@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
+#include "hardware/pwm.h"
 #include "aht20.h"
 #include "bmp280.h"
 #include "ssd1306.h"
@@ -17,6 +18,7 @@
 #define I2C_SCL_DISP 15
 #define endereco 0x3C
 
+#define buzzer 21// pino do Buzzer na BitDogLab
 double offset_Alt=82.0;//874 metros medido em site de tempo 
 double offset_Tem=-0.7;
 int auxLED_R=0;
@@ -37,12 +39,20 @@ double calculate_altitude(double pressure)
 #include "pico/bootrom.h"
 #define botaoB 6
 void gpio_irq_handler(uint gpio, uint32_t events)
-{
+{   
     reset_usb_boot(0, 0);
 }
 
 int main()
 {
+    //configurando PWM
+    uint pwm_wrap = 1999;// definindo valor de wrap 
+    gpio_set_function(buzzer, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(buzzer);
+    pwm_set_wrap(slice_num, pwm_wrap);
+    pwm_set_clkdiv(slice_num, 75.0);//divisor de clock 
+    pwm_set_enabled(slice_num, true);// Ativa PWM
+
     //definindo LED vermelho 
     gpio_init(LED_RED);
     gpio_set_dir(LED_RED , GPIO_OUT);
@@ -125,6 +135,9 @@ int main()
         gpio_put(LED_GREEN, auxLED_G);
         gpio_put(LED_BLUE, auxLED_B);
 
+        pwm_set_gpio_level(buzzer, 100);//liga buzzer
+        sleep_ms(111);
+        pwm_set_gpio_level(buzzer, 0);//desliga buzzer
         // Leitura do AHT20
         if (aht20_read(I2C_PORT, &data))
         {
