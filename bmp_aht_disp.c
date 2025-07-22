@@ -17,6 +17,16 @@
 #define I2C_SCL_DISP 15
 #define endereco 0x3C
 
+double offset_Alt=82.0;//874 metros medido em site de tempo 
+double offset_Tem=-0.7;
+int auxLED_R=0;
+int auxLED_G=0;
+int auxLED_B=0;
+void LED_RGB(double temperatura);
+
+#define LED_GREEN 11
+#define LED_BLUE 12
+#define LED_RED  13
 // Função para calcular a altitude a partir da pressão atmosférica
 double calculate_altitude(double pressure)
 {
@@ -33,6 +43,16 @@ void gpio_irq_handler(uint gpio, uint32_t events)
 
 int main()
 {
+    //definindo LED vermelho 
+    gpio_init(LED_RED);
+    gpio_set_dir(LED_RED , GPIO_OUT);
+    //definindo LED azul 
+    gpio_init(LED_BLUE);
+    gpio_set_dir(LED_BLUE , GPIO_OUT);
+    //definindo LED verde
+    gpio_init(LED_GREEN);
+    gpio_set_dir(LED_GREEN , GPIO_OUT);
+
     // Para ser utilizado o modo BOOTSEL com botão B
     gpio_init(botaoB);
     gpio_set_dir(botaoB, GPIO_IN);
@@ -92,13 +112,18 @@ int main()
         bmp280_read_raw(I2C_PORT, &raw_temp_bmp, &raw_pressure);
         int32_t temperature = bmp280_convert_temp(raw_temp_bmp, &params);
         int32_t pressure = bmp280_convert_pressure(raw_pressure, raw_temp_bmp, &params);
-
+        temperature=temperature +offset_Tem*100.0;
         // Cálculo da altitude
         double altitude = calculate_altitude(pressure);
-
+        altitude +=offset_Alt;
         printf("Pressao = %.3f kPa\n", pressure / 1000.0);
         printf("Temperatura BMP: = %.2f C\n", temperature / 100.0);
         printf("Altitude estimada: %.2f m\n", altitude);
+
+        LED_RGB(temperature/100.0);//acende LED de acordo temperatura 
+        gpio_put(LED_RED, auxLED_R);
+        gpio_put(LED_GREEN, auxLED_G);
+        gpio_put(LED_BLUE, auxLED_B);
 
         // Leitura do AHT20
         if (aht20_read(I2C_PORT, &data))
@@ -122,8 +147,8 @@ int main()
         ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor);       // Desenha um retângulo
         ssd1306_line(&ssd, 3, 25, 123, 25, cor);            // Desenha uma linha
         ssd1306_line(&ssd, 3, 37, 123, 37, cor);            // Desenha uma linha
-        ssd1306_draw_string(&ssd, "CEPEDI   TIC37", 8, 6);  // Desenha uma string
-        ssd1306_draw_string(&ssd, "EMBARCATECH", 20, 16);   // Desenha uma string
+        ssd1306_draw_string(&ssd, "ESTACAO  ", 38, 6);  // Desenha uma string
+        ssd1306_draw_string(&ssd, "MONITORAMENTO", 12, 16);   // Desenha uma string
         ssd1306_draw_string(&ssd, "BMP280  AHT10", 10, 28); // Desenha uma string
         ssd1306_line(&ssd, 63, 25, 63, 60, cor);            // Desenha uma linha vertical
         ssd1306_draw_string(&ssd, str_tmp1, 14, 41);             // Desenha uma string
@@ -136,4 +161,20 @@ int main()
     }
 
     return 0;
+}
+//função que coloca cor do LED RGB de acordo temperatura medida
+void LED_RGB(double temperatura){
+    if(temperatura>20.0 && temperatura<30.0){//cor azul (temperatura normal)
+        auxLED_R=0;
+        auxLED_G=0;
+        auxLED_B=1;
+    }else if(temperatura>=30.0){//cor vermelha(quente)
+        auxLED_R=1;
+        auxLED_G=0;
+        auxLED_B=0;
+    }else if(temperatura<=20.0){//cor branca (frio)
+        auxLED_R=1;
+        auxLED_G=1;
+        auxLED_B=1;
+    }
 }
